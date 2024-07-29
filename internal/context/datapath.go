@@ -274,6 +274,10 @@ func (node *DataPathNode) IsAnchorUPF() bool {
 	}
 }
 
+func (node *DataPathNode) IsLan() bool {
+	return true
+}
+
 func (node *DataPathNode) GetUpLinkPDR() (pdr *PDR) {
 	return node.UpLinkTunnel.PDR
 }
@@ -568,6 +572,58 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 					}
 				}
 			}
+
+			// In 5GLAN, using default pdr and far to transmit packet
+			if ULPDR.Precedence == 255 {
+
+				if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
+					logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
+					return
+				} else {
+					ULPDR.PDI = PDI{
+						SourceInterface: pfcpType.SourceInterface{InterfaceValue: pfcpType.SourceInterfaceAccess},
+						LocalFTeid: &pfcpType.FTEID{
+							V4:          true,
+							Ipv4Address: upIP,
+							Teid:        curULTunnel.TEID,
+						},
+						NetworkInstance: &pfcpType.NetworkInstance{
+							NetworkInstance: "Lan1",
+							FQDNEncoding:    factory.SmfConfig.Configuration.NwInstFqdnEncoding,
+						},
+						UEIPAddress: &pfcpType.UEIPAddress{
+							V4:          true,
+							Ipv4Address: smContext.PDUAddress.To4(),
+						},
+					}
+
+					ULPDR.OuterHeaderRemoval = &pfcpType.OuterHeaderRemoval{
+						OuterHeaderRemovalDescription: pfcpType.OuterHeaderRemovalUdpIpv4,
+					}
+
+					// FAR
+					ULFAR = ULPDR.FAR
+
+					ULFAR.ForwardingParameters = &ForwardingParameters{
+						DestinationInterface: pfcpType.DestinationInterface{
+							InterfaceValue: pfcpType.DestinationInterface5GVnInternal,
+						},
+						NetworkInstance: &pfcpType.NetworkInstance{
+							NetworkInstance: "Lan1",
+							FQDNEncoding:    factory.SmfConfig.Configuration.NwInstFqdnEncoding,
+						},
+					}
+
+					ULFAR.ForwardingParameters = &ForwardingParameters{
+						DestinationInterface: pfcpType.DestinationInterface{InterfaceValue: pfcpType.DestinationInterfaceAccess},
+						OuterHeaderCreation: &pfcpType.OuterHeaderCreation{
+							OuterHeaderCreationDescription: pfcpType.OuterHeaderCreationGtpUUdpIpv4,
+							Ipv4Address:                    upIP.To4(), // Need to update to AN ip
+							Teid:                           2,
+						},
+					}
+				}
+			}
 		}
 
 		// Setup DownLink
@@ -679,6 +735,51 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 					dlOuterHeaderCreation.Ipv4Address = smContext.Tunnel.ANInformation.IPAddress.To4()
 				}
 			}
+
+			// Don't need to add this
+
+			// if DLPDR.Precedence == 255 {
+			// 	tmp1 := net.IP("10.60.0.1")
+			// 	var out net.IP
+
+			// 	if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
+			// 		logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
+			// 		return
+			// 	} else {
+			// 		if net.IP.Equal(upIP, tmp1) {
+			// 			out = net.IP("10.60.0.2")
+			// 		} else {
+			// 			out = net.IP("10.60.0.1")
+			// 		}
+
+			// 		DLPDR.PDI = PDI{
+			// 			SourceInterface: pfcpType.SourceInterface{
+			// 				InterfaceValue: pfcpType.SourceInterface5GVnInternal,
+			// 			},
+			// 			NetworkInstance: &pfcpType.NetworkInstance{
+			// 				NetworkInstance: "Lan1",
+			// 				FQDNEncoding:    factory.SmfConfig.Configuration.NwInstFqdnEncoding,
+			// 			},
+			// 			UEIPAddress: &pfcpType.UEIPAddress{
+			// 				V4:          true,
+			// 				Sd:          true,
+			// 				Ipv4Address: out.To4(),
+			// 			},
+			// 		}
+
+			// 		DLFAR = DLPDR.FAR
+
+			// 		DLFAR.ForwardingParameters = &ForwardingParameters{
+			// 			DestinationInterface: pfcpType.DestinationInterface{InterfaceValue: pfcpType.DestinationInterfaceAccess},
+			// 			OuterHeaderCreation: &pfcpType.OuterHeaderCreation{
+			// 				OuterHeaderCreationDescription: pfcpType.OuterHeaderCreationGtpUUdpIpv4,
+			// 				Ipv4Address:                    upIP, // Need update to ue host ip
+			// 				Teid:                           0,
+			// 			},
+			// 		}
+			// 	}
+			// }
+
 		}
 	}
 

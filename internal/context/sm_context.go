@@ -748,6 +748,7 @@ func (c *SMContext) CreatePccRuleDataPath(pccRule *PCCRule,
 
 	createdDataPath.GBRFlow = isGBRFlow(qosData)
 	createdDataPath.ActivateTunnelAndPDR(c, uint32(pccRule.Precedence))
+	// c.Log.Infoln("pcc rule precedence[%u]", uint32(pccRule.Precedence))
 	c.Tunnel.AddDataPath(createdDataPath)
 	pccRule.Datapath = createdDataPath
 	pccRule.AddDataPathForwardingParameters(c, &targetRoute)

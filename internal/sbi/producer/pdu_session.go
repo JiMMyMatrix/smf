@@ -506,6 +506,8 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 		// Wait till the state becomes Active again
 		// TODO: implement sleep wait in concurrent architecture
 
+		// The FAR ue host ip address would be set up here
+
 		smContext.SetState(smf_context.ModificationPending)
 		pdrList = []*smf_context.PDR{}
 		farList = []*smf_context.FAR{}
@@ -514,6 +516,7 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 			if dataPath.Activated {
 				ANUPF := dataPath.FirstDPNode
 				DLPDR := ANUPF.DownLinkTunnel.PDR
+				// smContext.Log.Infoln("DLPDR id: ", DLPDR.PDRID)
 
 				DLPDR.FAR.ApplyAction = pfcpType.ApplyAction{
 					Buff: false,
@@ -535,10 +538,38 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 				DLPDR.State = smf_context.RULE_UPDATE
 				DLPDR.FAR.State = smf_context.RULE_UPDATE
 
+				// For update default far address
+				ULPDR := ANUPF.UpLinkTunnel.PDR
+				if ULPDR.Precedence == 255 {
+					ULPDR.FAR.ApplyAction = pfcpType.ApplyAction{
+						Buff: false,
+						Drop: false,
+						Dupl: false,
+						Forw: true,
+						Nocp: false,
+					}
+					ULPDR.FAR.ForwardingParameters = &smf_context.ForwardingParameters{
+						DestinationInterface: pfcpType.DestinationInterface{
+							InterfaceValue: pfcpType.DestinationInterface5GVnInternal,
+						},
+						NetworkInstance: &pfcpType.NetworkInstance{
+							NetworkInstance: smContext.Dnn,
+							FQDNEncoding:    factory.SmfConfig.Configuration.NwInstFqdnEncoding,
+						},
+					}
+
+					ULPDR.State = smf_context.RULE_UPDATE
+					ULPDR.FAR.State = smf_context.RULE_UPDATE
+
+					pdrList = append(pdrList, ULPDR)
+					farList = append(farList, ULPDR.FAR)
+				}
+
 				pdrList = append(pdrList, DLPDR)
 				farList = append(farList, DLPDR.FAR)
 			}
 		}
+		smContext.Log.Infoln("In case N2SmInfoType_PDU_RES_SETUP_RSP")
 
 		if err := smf_context.
 			HandlePDUSessionResourceSetupResponseTransfer(body.BinaryDataN2SmInformation, smContext); err != nil {
@@ -586,7 +617,7 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 			}
 		}
 	case models.N2SmInfoType_PATH_SWITCH_REQ:
-		smContext.Log.Traceln("Handle Path Switch Request")
+		smContext.Log.Infoln("Handle Path Switch Request")
 		smContext.CheckState(smf_context.Active)
 		// Wait till the state becomes Active again
 		// TODO: implement sleep wait in concurrent architecture
@@ -665,7 +696,7 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 		}
 		response.JsonData.HoState = models.HoState_PREPARING
 	case models.HoState_PREPARED:
-		smContext.Log.Traceln("In HoState_PREPARED")
+		smContext.Log.Infoln("In HoState_PREPARED")
 		smContext.CheckState(smf_context.Active)
 		// Wait till the state becomes Active again
 		// TODO: implement sleep wait in concurrent architecture
@@ -707,7 +738,7 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 		}
 		response.JsonData.HoState = models.HoState_PREPARING
 	case models.HoState_COMPLETED:
-		smContext.Log.Traceln("In HoState_COMPLETED")
+		smContext.Log.Infoln("In HoState_COMPLETED")
 		smContext.CheckState(smf_context.Active)
 		// Wait till the state becomes Active again
 		// TODO: implement sleep wait in concurrent architecture
@@ -774,7 +805,8 @@ func HandlePDUSessionSMContextUpdate(smContextRef string, body models.UpdateSmCo
 	// Check FSM and take corresponding action
 	switch smContext.State() {
 	case smf_context.PFCPModification:
-		smContext.Log.Traceln("In case PFCPModification")
+		smContext.Log.Infoln("In case PFCPModification")
+		// Here
 
 		if sendPFCPModification {
 			pfcpResponseStatus = updateAnUpfPfcpSession(smContext, pdrList, farList, barList, qerList, urrList)

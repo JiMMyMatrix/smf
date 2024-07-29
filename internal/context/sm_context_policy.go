@@ -126,7 +126,7 @@ func (c *SMContext) ApplyPccRules(
 	if decision == nil {
 		return fmt.Errorf("SmPolicyDecision is nil")
 	}
-
+	c.Log.Infoln("In ApplyPccRules")
 	finalPccRules := make(map[string]*PCCRule)
 	finalTcDatas := make(map[string]*TrafficControlData)
 	finalQosDatas := make(map[string]*models.QosData)

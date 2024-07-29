@@ -1,6 +1,7 @@
 package context
 
 import (
+	"net"
 	"time"
 
 	"github.com/free5gc/pfcp/pfcpType"
@@ -29,6 +30,13 @@ type PDR struct {
 	QER []*QER
 
 	State RuleState
+}
+
+type VNPDR struct {
+	VNPDR       uint32
+	Teid        uint32
+	Ipv4Address net.IP
+	PortNumber  uint16
 }
 
 const (
